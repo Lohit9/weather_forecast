@@ -49,3 +49,5 @@ gem 'httparty'
 gem 'dotenv-rails'
 gem 'rspec-rails', group: [:development, :test]
 gem 'redis' # for caching
+gem 'factory_bot_rails'
+
