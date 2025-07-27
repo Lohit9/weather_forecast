@@ -47,7 +47,11 @@ end
 
 gem 'httparty'
 gem 'dotenv-rails'
-gem 'rspec-rails', group: [:development, :test]
 gem 'redis' # for caching
-gem 'factory_bot_rails'
+
+# Testing
+group :development, :test do
+  gem 'rspec-rails'
+  gem 'factory_bot_rails'
+end
 

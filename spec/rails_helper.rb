@@ -72,6 +72,7 @@ RSpec.configure do |config|
   Dir[Rails.root.join('spec/support/**/*.rb')].each { |f| require f }
   
   RSpec.configure do |config|
+    config.include ApiHelpers
     config.include FactoryBot::Syntax::Methods
   end
 
