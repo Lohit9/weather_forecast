@@ -1,0 +1,23 @@
+require "rails_helper"
+
+RSpec.describe "Weather Forecast API", type: :request do
+  describe "POST /forecast" do
+    it "returns forecast data for a valid address" do
+      post "/forecast", params: { address: "Berlin, Germany" }
+
+      expect(response).to have_http_status(:ok)
+      json = JSON.parse(response.body)
+      expect(json).to include("temp", "weather")
+    end
+
+    it "returns 400 when address is missing" do
+      post "/forecast", params: {}
+      expect(response).to have_http_status(400)
+    end
+
+    it "returns 422 when geocoding fails" do
+      post "/forecast", params: { address: "sdfhsdkjfhsdfksjdfh" }
+      expect(response).to have_http_status(422)
+    end
+  end
+end

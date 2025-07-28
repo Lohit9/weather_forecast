@@ -41,6 +41,7 @@ module WeatherForecast
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
 
-    Dotenv::Railtie.load if defined?(Dotenv)
+    Dotenv::Rails.load if defined?(Dotenv)
+    config.autoload_paths << Rails.root.join('services')
   end
 end
