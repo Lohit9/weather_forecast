@@ -31,6 +31,7 @@ class GeocodingService
           extract_postal_code_from_display_name(result["display_name"])
     
     country = address_data["country_code"]&.upcase
+    # Keep coordinates as strings to match test expectations
     lat = result["lat"]
     lon = result["lon"]
 

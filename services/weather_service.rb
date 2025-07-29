@@ -2,55 +2,76 @@ class WeatherService
   include HTTParty
   base_uri "https://api.openweathermap.org/data/2.5"
 
-  def self.get_forecast(zip: nil, country: nil, lat: nil, lon: nil)
-    # Determine cache key and API parameters
-    if zip && country
-      cache_key = "#{zip}-#{country}".downcase
-      api_params = { zip: "#{zip},#{country}" }
-      Rails.logger.info("[WeatherService] Using postal code: #{zip}, #{country}")
+  def self.normalize_coordinates(lat, lon)
+    return nil unless lat && lon
+    [
+      lat.to_f.round(4),
+      lon.to_f.round(4)
+    ]
+  end
+
+  def self.cache_key_for(zip: nil, country: nil, lat: nil, lon: nil)
+    key = if zip && country && country.upcase != 'CA'
+      "weather_forecast/zip/#{zip}-#{country}"
     elsif lat && lon
-      # Convert to floats and round for cache key
-      lat_float = lat.to_f
-      lon_float = lon.to_f
-      cache_key = "#{lat_float.round(4)}-#{lon_float.round(4)}".downcase
-      api_params = { lat: lat_float, lon: lon_float }
-      Rails.logger.info("[WeatherService] Using coordinates: #{lat_float}, #{lon_float}")
+      lat_norm, lon_norm = normalize_coordinates(lat, lon)
+      "weather_forecast/coords/#{lat_norm}/#{lon_norm}"
+    end
+    key&.downcase
+  end
+
+  def self.get_forecast(zip: nil, country: nil, lat: nil, lon: nil)
+    # Build cache key and API params
+    if zip && country && country.upcase != 'CA'
+      api_params = { zip: "#{zip},#{country}" }
+    elsif lat && lon
+      lat_norm, lon_norm = normalize_coordinates(lat, lon)
+      api_params = { lat: lat_norm, lon: lon_norm }
     else
       return { error: "Invalid location parameters" }
     end
 
-    Rails.logger.info("[WeatherService] Cache key: #{cache_key}")
+    cache_key = cache_key_for(zip: zip, country: country, lat: lat, lon: lon)
+    Rails.logger.info "[WeatherService] Using cache key: #{cache_key}"
 
-    cached = true
-    result = Rails.cache.fetch(cache_key, expires_in: 30.minutes) do
-      cached = false  # This line only executes if cache miss
-      Rails.logger.info("[WeatherService] Making API call to OpenWeatherMap")
-      
-      response = get("/weather", query: api_params.merge({
-        appid: ENV["OPENWEATHER_API_KEY"],
-        units: "metric"
-      }))
-
-      Rails.logger.info("[WeatherService] API response success: #{response.success?}")
-      Rails.logger.info("[WeatherService] API response code: #{response.code}")
-      Rails.logger.info("[WeatherService] API response body: #{response.body}")
-
-      if response.success?
-        {
-          temp: response["main"]["temp"],
-          temp_min: response["main"]["temp_min"],
-          temp_max: response["main"]["temp_max"],
-          weather: response["weather"].first["description"]
-        }
+    # Try to read from cache first
+    cached_data = Rails.cache.read(cache_key)
+    if cached_data
+      # Check if cache is still valid (within 30 minutes)
+      cache_age = Time.current.to_i - cached_data[:cached_at]
+      if cache_age < 30.minutes
+        Rails.logger.info "[WeatherService] Cache hit - returning cached data"
+        return cached_data.merge(from_cache: true)
       else
-        Rails.logger.error("[WeatherService] API call failed: #{response.code} - #{response.body}")
-        { error: "Weather data not available" }
+        Rails.logger.info "[WeatherService] Cache expired after #{cache_age} seconds"
+        Rails.cache.delete(cache_key)
       end
     end
 
-    result = result.with_indifferent_access
-    result[:from_cache] = cached
-    result
+    # Fetch fresh data from API
+    Rails.logger.info "[WeatherService] Cache miss - fetching from API"
+    response = get("/weather", query: api_params.merge({
+      appid: ENV["OPENWEATHER_API_KEY"],
+      units: "metric"
+    }))
+
+    if response.success?
+      result = {
+        temp: response["main"]["temp"],
+        temp_min: response["main"]["temp_min"],
+        temp_max: response["main"]["temp_max"],
+        weather: response["weather"].first["description"],
+        cached_at: Time.current.to_i,
+        from_cache: false
+      }
+
+      # Cache the new data
+      Rails.cache.write(cache_key, result, expires_in: 30.minutes)
+      Rails.logger.info "[WeatherService] Cached new data"
+
+      result
+    else
+      { error: "Weather data not available" }
+    end
   end
 end
-  

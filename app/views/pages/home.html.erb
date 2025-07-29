@@ -1,0 +1,30 @@
+<div class="container">
+  <h1>🌦 Weather Forecast</h1>
+
+  <%= form_tag search_path, method: :get, class: 'search-form' do %>
+    <div class="form-group">
+      <label for="address">Enter an address:</label>
+      <%= text_field_tag :address, params[:address], class: 'form-control', required: true %>
+    </div>
+    <%= submit_tag "Get Weather", class: 'btn btn-primary' %>
+  <% end %>
+
+  <% if @forecast %>
+    <div class="weather-result">
+      <h2>Current Weather</h2>
+      <ul>
+        <li><strong>Temperature:</strong> <%= @forecast[:temp] %> °C</li>
+        <li><strong>High:</strong> <%= @forecast[:temp_max] %> °C</li>
+        <li><strong>Low:</strong> <%= @forecast[:temp_min] %> °C</li>
+        <li><strong>Conditions:</strong> <%= @forecast[:weather] %></li>
+        <li><em><%= @forecast[:from_cache] ? "⚡ From Cache" : "📡 Live Data" %></em></li>
+      </ul>
+    </div>
+  <% end %>
+
+  <% if @error %>
+    <div class="alert alert-danger">
+      <%= @error %>
+    </div>
+  <% end %>
+</div>
